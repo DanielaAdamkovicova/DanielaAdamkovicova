@@ -1,0 +1,148 @@
+---
+title: "Úloha 2 - grafy"
+subtitle: "VYPRACOVANIE"
+author: "Daniela Adamkovičová"
+date: "09.11.2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+Ako prvé som si nainštalovala balíky `ggpubr` a `multcomp`. Ďalej som v tomto notebooku využila knižnice: `tidyverse`, `dplyr` a `gplots`.
+
+### A) Dáta o PCR
+
+Importovala som dáta o PCR z kapitoly o importe.
+
+```{r message=FALSE, warning = FALSE}
+library(tidyverse)
+sod3.data <- read_delim("https://raw.githubusercontent.com/PKvasnick/RTutorial/master/data/sod3_full.dat",
+    "\t", escape_double = FALSE, trim_ws = TRUE)
+head(sod3.data)
+gapdh.data <- read_delim("https://raw.githubusercontent.com/PKvasnick/RTutorial/master/data/gapdh_full.dat",
+    "\t", escape_double = FALSE, trim_ws = TRUE)
+head(gapdh.data)
+```
+
+
+Dáta sme upravili a  normalizovali ich logaritmickou transformáciou.
+
+```{r message=FALSE, warning = FALSE}
+sod3.data$Cref <- gapdh.data$C
+sod3.data$LogRat <- log10(sod3.data$C / sod3.data$Cref)
+head(sod3.data)
+```
+
+
+Ďalej by som pre naše dáta využila analýzu rozptylu - *One-Way ANOVA*, pretože máme máme tri skupiny, ktoré si vyžadujú tri porovnania (aby sme pokryli všetky kombinácie skupín). 
+
+```{r message=FALSE, warning = FALSE}
+library(dplyr)
+lm1 <- aov(LogRat ~ Group, data = sod3.data)
+summary(lm1)
+```
+
+
+Test ANOVA nám síce povie, či máme celkový rozdiel medzi našimi skupinami, ale nepovie nám, ktoré konkrétne skupiny sa navzájom líšia. To nám povedia post hoc testy. Ako post hoc test (porovnanie) sa najbežnejšie používa Tukeyho metóda na hladine významnosti 0.05.
+
+``` {r message=FALSE, warning = FALSE}
+TukeyHSD(lm1)
+```
+
+
+*Graf Tukeyho HSD testu*
+
+```{r message=FALSE, warning = FALSE}
+library(gplots)
+par(las=2)
+par(mar=c(5,10,4,2))
+plot(TukeyHSD(lm1))
+```
+
+
+Nižšie som sa pokúsila vykresliť podobný graf, aký sme mali na hodine o importe dát s využitím balíka `ggpubr`a *Kruskal – Wallisovho testu podľa hodností*. 
+Kruskal - Wallisov test je neparametrická alternatíva k One-Way ANOVA testu. Výsledok testu Kruskal – Wallis nám teda povie, či existujú rozdiely medzi skupinami, ale nepovie nám, ktoré skupiny sa líšia od ostatných skupín. V grafe tiež vidíme hodnoty post hoc testu. Najbežnejším post-hoc testom pre Kruskal-Wallisov test je Dunnov test, ale domnievam sa, že v grafe je využitý Wilcoxonov test.
+
+```{r message=FALSE, warning = FALSE}
+library(ggpubr)
+similar_graph <- ggboxplot(sod3.data, x = "Group", y = "LogRat",
+                color = "Group", palette =c("tomato", "seagreen3", "deepskyblue3"),
+                add = "jitter", shape = "Group")
+comparison <- list( c("KONTROLA", "7-NI"), c("7-NI", "L-NAME"), c("KONTROLA", "L-NAME") )
+similar_graph + stat_compare_means(comparisons = comparison)+
+stat_compare_means(label.y = 0.7)
+```
+
+
+Tu som sa pokúsila pridať výsledok párového testu voči referenčnej skupine.
+
+```{r message=FALSE, warning = FALSE}
+ggboxplot(sod3.data, x = "Group", y = "LogRat",
+          color = "Group", palette = "jco")+
+  stat_compare_means(method = "anova", label.y = 0.6)+  
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = "KONTROLA")                   
+```
+
+
+
+### B) Dataset `cholesterol`
+
+
+Najprv som si načítala a zobrazila dáta `cholesterol` z balíka `multcomp`. Tento dataset zobrazuje údaje o päťdesiatich pacientoch, ktorí boli liečení na vysokú hladinu cholesterolu v krvi. Bolo im poskytnutých 5 rôznych liečebných postupov. Tri z nich zahŕňali rovnaké liečivo podávané ako 20 mg raz denne (1-krát), 10 mg dvakrát denne (2-krát) a 5 mg štyrikrát denne (4-krát). Dve zostávajúce liečebné postupy (drugD a drugE) reprezentujú konkurenčné lieky.
+
+
+Aj pre túto skupinu dát by som využila *One-Way ANOVA test*.
+
+```{r message=FALSE, warning = FALSE}
+library(multcomp)
+attach(cholesterol)
+head(cholesterol)
+aov1 <- aov(response ~ trt)
+summary(aov1)
+```
+
+
+Tiež som aplikovala Tukeyho test.
+
+```{r  message=FALSE, warning = FALSE}
+tukey <- glht(aov1, linfct=mcp(trt="Tukey"))
+summary(tukey)
+```
+
+
+*Graf Tukeyho HSD testu*
+
+```{r message=FALSE, warning = FALSE}
+par(las=2)
+par(mar=c(5,8,4,2))
+plot(TukeyHSD(aov1))
+```
+
+
+V nasledujúcom grafe som sa pokúsila vykreliť výsledky štúdie využitím dokumentácie balíka `ggpubr`.
+
+```{r message=FALSE, warning = FALSE}
+lb1 <- cld(tukey, level=.05)$mcletters$Letters
+lb2 <- paste(names(lb1), "\n", lb1)
+graph <- ggboxplot(cholesterol, x = "trt", y = "response", fill = "lightblue")+
+    labs(x="Treatment (trt)", y="Response")+
+    theme_bw()+
+    scale_x_discrete(breaks=names(lb1), labels=lb2)
+graph
+```
+
+
+Aj tu som sa pokúsila vykreliť výsledky štúdie. Použila som graf z balíka `ggpubr`, ktorý... sa mi páčil. Graf ukazuje porovnanie každej z piatich skupín proti „všetkým“. 
+
+```{r message=FALSE, warning = FALSE}
+ggboxplot(cholesterol, x = "trt", y = "response", color = "trt", 
+          add = "jitter", legend = "none") +
+  rotate_x_text(angle = 45)+
+  geom_hline(yintercept = mean(cholesterol$response), linetype = 2)+ 
+  stat_compare_means(method = "anova", label.y = 30)+        
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.")      
+```
+
+Z výsledkov vidíme, že užívanie lieku na zníženie cholesterolu v 5 mg dávkach (štyrikrát denne) bolo lepšie ako užívanie 20 mg dávky (jedenkrát denne). Tiež vidíme, že konkurenčný liek drug E spôsobil najväčšie zníženie cholesterolu, zatiaľ čo jednorazové užívanie 20 mg dávky znižoval cholesterol najmenej.

@@ -1,0 +1,91 @@
+---
+title: "Úloha 1 - analýza"
+author: "Daniela Adamkovičová"
+subtitle: "VYPRACOVANIE"
+date: "09.11.2020"
+output: 
+  html_document: default
+  pdf_document: default
+---
+
+v tomto notebooku som využila tieto knižnice: `tidyverse`, `dplyr` a `ggpubr`.
+
+```{r message=FALSE, warning = FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggpubr)
+```
+
+Najprv som si načítala dáta pomocou funkcie `read_delim` a vypísala prvých 6 riadokov tabuľky.
+
+```{r message=FALSE, warning = FALSE}
+neuro <- read_delim("https://raw.githubusercontent.com/PKvasnick/RTutorial/master/data/Neuro.csv", 
+              ",", escape_double = TRUE, col_names = TRUE)
+head(neuro)
+```
+
+Pomocou funkcie `summary` som sa "bližšie" pozrela na dáta.
+
+```{r}
+summary(neuro)
+```
+
+
+Vídím, že stĺpec `Education`je triedy `character`. Ja ho však chcem mať ako `factor`, preto sa to pokúsim v nasledujúcich krokoch zmeniť.
+
+```{r}
+education <- factor(c("low", "medium", "heigh"), order = TRUE, levels = c("low", "medium", "heigh"))
+education
+class(education)
+levels(education)
+min(education)
+max(education)
+```
+
+
+Našou úlohou je preskúmať vplyv mzdy na neurotické problémy, preto som zvolila lineárny model.
+
+```{r}
+lm1 <- lm(Neuroticism ~ Salary, data = neuro)
+summary(lm1)
+cor(neuro$Neuroticism, neuro$Salary)
+```
+
+
+Ďalej sme mali preskúmať vplyv mzdy podľa úrovne vzdelania. Tu som zvolila *One-Way ANOVA* test.
+
+```{r}
+lm2 <- aov(Salary ~ Education, data = neuro)
+summary(lm2)
+```
+
+
+Graficky by som vplyv vzdelania na výšku mzdy znázornila nasledovne:
+
+```{r}
+ggboxplot(neuro, x = "Education", y = "Salary",
+          color = "Education", palette = "jco")+
+  stat_compare_means(method = "anova", label.y = 10000)+      
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.") 
+```
+
+
+Na grafe je vidieť, že ľudia s nižším vzdelaním majú najnižší plat a naopak, ľudia s vyšším vzdelaním majú plat vyšší.
+
+
+
+Vzťah medzi vzdelaním a neurotickými poruchami, by som znázornila asi takto: 
+
+```{r}
+ggboxplot(neuro, x = "Education", y = "Neuroticism",
+          color = "Education", palette = "jco")+
+  geom_hline(yintercept = mean(neuro$Neuroticism), linetype = 2)+ # Add horizontal line at base mean
+  stat_compare_means(method = "anova", label.y = 0.5)+      
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.")  
+```
+
+
+Na základe tohto grafu by som usúdila, že so zvyšujúcim sa vzdelaním sa zvyšuje aj počet neurotických porúch.
+
