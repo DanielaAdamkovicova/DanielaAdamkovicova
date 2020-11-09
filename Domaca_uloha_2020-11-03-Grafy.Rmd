@@ -133,7 +133,7 @@ graph
 ```
 
 
-Aj tu som sa pokúsila vykreliť výsledky štúdie. Použila som graf z balíka `ggpubr`, ktorý... sa mi páčil. Graf ukazuje porovnanie každej z piatich skupín proti „všetkým“. 
+Aj tu som sa pokúsila vykreliť výsledky štúdie. Použila som graf z balíka `ggpubr`, ktorý... sa mi páčil. Graf ukazuje porovnanie každej z piatich skupín oproti „všetkým“. 
 
 ```{r message=FALSE, warning = FALSE}
 ggboxplot(cholesterol, x = "trt", y = "response", color = "trt", 
@@ -145,4 +145,4 @@ ggboxplot(cholesterol, x = "trt", y = "response", color = "trt",
                      ref.group = ".all.")      
 ```
 
-Z výsledkov vidíme, že užívanie lieku na zníženie cholesterolu v 5 mg dávkach (štyrikrát denne) bolo lepšie ako užívanie 20 mg dávky (jedenkrát denne). Tiež vidíme, že konkurenčný liek drug E spôsobil najväčšie zníženie cholesterolu, zatiaľ čo jednorazové užívanie 20 mg dávky znižoval cholesterol najmenej.
+Z výsledkov vidíme, že užívanie lieku na zníženie cholesterolu v 5 mg dávkach (štyrikrát denne) bolo lepšie ako užívanie 20 mg dávky (jedenkrát denne). Tiež vidíme, že konkurenčný liek drug E spôsobil najväčšie zníženie cholesterolu, zatiaľ čo jednorazové užívanie 20 mg dávky znižovalo cholesterol najmenej.
