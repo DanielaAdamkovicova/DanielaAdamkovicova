@@ -1,0 +1,279 @@
+---
+title: "Domáca úloha 05/11/2020 - Covid"
+subtitle: "VYPRACOVANIE"
+author: "Daniela Adamkovičová"
+date: "11.11.2020"
+output:
+  html_document: default
+---
+
+Prvé kroky som prebrala z Vášho notebooku.
+
+__Knižnice__: `tidyverse`, `COVID19`, `ggplot2` a `hrbrthemes`.
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(COVID19)
+library(hrbrthemes)
+library(ggplot2)
+```
+
+```{r}
+covid_SVK <- covid19(
+  country = "SVK",
+  start = "2020-09-01",
+  verbose = FALSE
+)
+covid_SVK
+```
+
+```{r warning=FALSE}
+covid_SVK %>% 
+  mutate(daily_tests = c(0, diff(tests))) %>% # diff dá rozdiel medzi po sebe idúcimi dňami, na začiatok dopĺňame nulu.
+ggplot(mapping = aes(x = date, y = daily_tests)) +
+  geom_point() +
+  stat_smooth(method = 'loess') +
+  labs(
+    title = "Denný počet testov na COVID-19 od 1. septembra"
+  )
+```
+
+
+__Úloha__: Zobrazte vývoj reprodukčného čísla *R*. Skúste vykresliť dáta tak, aby zobrazovali informáciu o účinku epidemických opatrení na R.
+
+Jednoduchý odhad čísla *R*, tzv. *reprodukčné číslo Přemka Podlahy* sa dá vypočítať pomocou nasledujúceho vzorca: 
+
+$$
+R\approx \frac{\sum_{d = dnes - 1}^{dnes-7}novozistených_d}{\sum_{d = dnes - 6}^{dnes-12}novozistených_d}
+$$
+
+
+## VYPRACOVANIE
+
+Vypočítala som hodnoty novopotvrdených prípadov a vytvorila tabuľku, kde mám údaje len o dátume, potvrdených a novopotvrdených prípadoch (mne pre prehľadnosť).
+
+```{r message=FALSE}
+my_table <- select(covid_SVK, confirmed, date)
+my_table <- mutate(my_table, newconfirmed = c(0,diff(confirmed)))
+head(my_table)
+```
+
+
+Údaje o novopotvrdených z tabuľky `my_table` som si priradila do vektora, pretože sa mi takto jednoduchšie pristupovalo k hodnotám.
+
+```{r}
+vector = numeric()
+newconfirmed_vector <- pull(my_table)
+newconfirmed_vector
+```
+
+
+V nasledujúcich krokoch som sa pokúsila vyrátať hodnotu *reprodukčného čísla R*.
+Som si vedomá, že ten výpočet je zbytočne zdlhavý a komplikovaný, ale na nič iné som akosi neprišla. 
+
+```{r}
+i=1
+shift = 0
+for (i in 1:nrow(my_table)) {
+  if(shift != 0){
+    
+  numerator = cumsum(tail(head(newconfirmed_vector, -shift),7))[7]
+  
+  }
+  else{
+    
+    numerator = cumsum(tail(newconfirmed_vector, 7))[7]
+    
+  }
+ if(shift != 0){
+  denominator = cumsum(tail(head(newconfirmed_vector, -5-shift),7))[7]
+ }
+  else{
+    
+    denominator = cumsum(tail(head(newconfirmed_vector, -5), 7))[7]
+  }
+  result = numerator/denominator
+  vector <- c(vector, result)
+  shift = shift + 1
+}
+vector
+```
+
+
+Pridala som nový stĺpec s hodnotami `vectora` do pôvodnej tabuľky `covid_SVK`.
+
+```{r}
+covid_SVK <- mutate(covid_SVK, R_number =rev(vector))
+covid_SVK
+```
+
+
+Ďalej som sa pokúsila zobraziť vývoj reprodukčného čísla *R*.
+
+```{r warning=FALSE}
+graph_of_R <- ggplot(data = covid_SVK) + 
+  geom_line(mapping = aes(x = date, y = R_number), color = "black") +
+  geom_point(mapping = aes(x = date, y = R_number), shape = 21, color = "black", fill = "#69b3a2", size = 1.5) +
+  labs(title = "Vývoj reprodukčného čísla R od 12. septembra") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R + scale_x_date(limits = c(min, max))
+```
+
+
+V nasledujúcich jedenástich grafoch je pokus o vykreslenie dát s informáciou o účinku epidemických opatrení na R.
+
+
+* school_closing
+```{r warning=FALSE}
+graph_of_R1 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = school_closing)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(zatváranie škôl)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R1 + scale_x_date(limits = c(min, max))
+```
+
+
+*workplace_closing
+```{r warning=FALSE}
+graph_of_R2 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = workplace_closing)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(zatváranie pracovísk)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R2 + scale_x_date(limits = c(min, max))
+```
+
+
+*cancel_events
+```{r warning=FALSE}
+graph_of_R3 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = cancel_events)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(zrušenie verejných podujatí)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R3 + scale_x_date(limits = c(min, max))
+```
+
+
+* gatherings_restrictions
+```{r warning=FALSE}
+graph_of_R4 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = gatherings_restrictions)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(obmedzenie zhromažďovania)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R4 + scale_x_date(limits = c(min, max))
+```
+
+
+* transport_closing
+```{r warning=FALSE}
+graph_of_R5 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = transport_closing)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(obmedzenie dopravy)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R5 + scale_x_date(limits = c(min, max))
+```
+
+
+* stay_home_restrictions
+```{r warning=FALSE}
+graph_of_R6 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = stay_home_restrictions)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(zákaz vychádzania)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R6 + scale_x_date(limits = c(min, max))
+```
+
+
+* internal_movement_restrictions
+```{r warning=FALSE}
+graph_of_R7 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = internal_movement_restrictions)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(vnútorné obmedzenie pohybu)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R7 + scale_x_date(limits = c(min, max))
+```
+
+
+* international_movement_restrictions
+```{r warning=FALSE}
+graph_of_R8 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = international_movement_restrictions)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(medzinárodné obmedzenia pohybu)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R8 + scale_x_date(limits = c(min, max))
+```
+
+
+* information_campaigns
+```{r warning=FALSE}
+graph_of_R9 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = information_campaigns)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(informačné kampane)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R9 + scale_x_date(limits = c(min, max))
+```
+
+* testing_policy
+```{r warning=FALSE}
+graph_of_R10 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = testing_policy)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(testovanie)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R10 + scale_x_date(limits = c(min, max))
+```
+
+
+* contact_tracing
+```{r warning=FALSE}
+graph_of_R11 <- ggplot(data = covid_SVK, mapping = aes(x=date, y=R_number, color = contact_tracing)) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(title = "Vývoj reprodukčného čísla od účinku epidemických opatrení
+(vyhľadávanie kontaktov)") +
+  labs(x = "Dátum", y = "Reprodukčné číslo R")
+min <- as.Date("2020-09-12")
+max <- as.Date("2020-11-11")
+graph_of_R11 + scale_x_date(limits = c(min, max))
+```
+
