@@ -1,0 +1,157 @@
+---
+title: "Matematicko-fyzikálne rozbory meraní v medicíne"
+author: "Daniela Adamkovičová"
+date: "2.2.2021"
+output:
+  html_document: default
+  pdf_document: default
+subtitle: Skúška 2020/2021
+---
+
+V tomto notebooku som využila nasledujúce knižnice:
+
+```{r, message=FALSE, warning=FALSE}
+library(ggpubr)
+library(moments) 
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(pastecs)
+library(psych)
+library(gt)
+library(glue)
+library(reshape)
+library(basicTrendline)
+library(e1071)
+```
+
+__Výskumný zámer:__
+
+Porovnanie diagnostickej výkonnosti a zhody Magnetickej Rezonancie (MR) a Sonografie (ECHO) pri stanovení NC/C pomeru (NC/C - nekompaktná vrstva myokardu/kompaktná vrstva).
+
+
+V tomto bloku kódu som si načítala dáta.
+```{r}
+
+data <- read.delim("https://raw.githubusercontent.com//DanielaAdamkovicova//DanielaAdamkovicova//master//data.csv", sep = ";")
+data
+```
+
+
+__Deskriptívna štatistika__
+
+Tu som sa pokúsila spraviť kompletnú popisnú štatistiku pre premennú Veľkosť ľavej komory (ĽK) osobitne pre hodnotu stanovenú metódou MR a osobitne pre hodnotu stanovenú metódou Echo.
+
+```{r}
+LK_MR <- as.numeric(unlist(data["LK.cm.MR"]))
+LK_ECHO <- as.numeric(unlist(data["LK.cm.ECHO"]))
+lk_mr_stat <- data.frame(as.list(stat.desc(LK_MR)))
+lk_echo_stat <- data.frame(as.list(stat.desc(LK_ECHO)))
+
+lk_mr_stat$Skewness = skewness(LK_MR)
+lk_mr_stat$Kurtosis = kurtosis(LK_MR)
+lk_echo_stat$Skewness = skewness(LK_ECHO)
+lk_echo_stat$Kurtosis = kurtosis(LK_ECHO)
+
+lk_mr_muzi <- filter(data, pohlavie == "M")
+lk_mr_zeny <- filter(data, pohlavie == "Z")
+lk_mr_stat %>%
+  dplyr::rename(
+    Number_of_elements = nbr.val,
+    Standard_Error = SE.mean,
+    Standard_Deviation = std.dev,
+    Sample_Variance = var
+  )%>%
+   dplyr::select(-nbr.null,-nbr.na, -CI.mean.0.95
+, -coef.var) %>%
+ gt() %>%
+  tab_header(
+    title = "LK_MR_STAT"
+  ) %>%
+  fmt_number(
+    columns = vars(Number_of_elements,min,max,range,sum,median,mean,Standard_Error,Sample_Variance,Standard_Deviation)
+  )
+
+lk_echo_stat %>%
+  dplyr::rename(
+    Number_of_elements = nbr.val,
+    Standard_Error = SE.mean,
+    Standard_Deviation = std.dev,
+    Sample_Variance = var
+    
+  )%>%
+   dplyr::select(-nbr.null,-nbr.na, -CI.mean.0.95
+, -coef.var) %>%
+ gt() %>%
+  tab_header(
+    title = "LK_ECHO_STAT"
+  ) %>%
+  fmt_number(
+    columns = vars(Number_of_elements,min,max,range,sum,median,mean,Standard_Error,Sample_Variance,Standard_Deviation)
+    
+  )
+```
+
+
+
+__Bar plot__
+
+Ďalej som spravila bar plot stredných hodnôt pre premennú Veľkosť ľavej komory (ĽK) osobitne pre hodnotu stanovenú metódou MR (pre mužov a ženy) a osobitne pre hodnotu stanovenú metódou ECHO (pre mužov a pre ženy).
+
+```{r}
+categories <- c("LK_MR_M","LK_ECHO_M","LK_MR_Z","LK_ECHO_Z")
+values <- c(lk_mr_muzi$LK.cm.MR, lk_mr_muzi$LK.cm.ECHO, lk_mr_zeny$LK.cm.MR, lk_mr_zeny$LK.cm.ECHO)
+data_2 <- data.frame(values)
+data_2["Category"] <- NA
+data_2$Category[1:40] = "LK_MR_M"
+data_2$Category[41:80] = "LK_ECHO_M"
+data_2$Category[81:100] = "LK_MR_Z"
+data_2$Category[101:120] = "LK_ECHO_Z"
+ggbarplot(data_2, x="Category", y="values",
+       add = c("mean_se", "jitter"))
+```
+
+__XY graf__
+
+XY graf pre hodnoty veľkosti ĽK na MR a ECHU.
+
+```{r warning=FALSE}
+trendline(data$LK.cm.MR,data$LK.cm.ECHO,model="line2P",plot=FALSE,linecolor="red", xlab="ĽK [cm] MR", ylab="ĽK [cm] ECHO")
+```
+
+Z grafického zobrazenia dát vidíme, že dáta spolu korelujú vo vysokej miere (0,9 ≤ r => vysoká významnosť).
+
+Hodnota korelačného koeficietu:
+
+```{r}
+r <- sqrt(0.85872)
+r
+```
+
+__XY graf__
+
+XY graf pre hodnoty veľkosti ĽK na MR a ejekčnej frakcie MR.
+
+```{r warning=FALSE}
+trendline(data$LK.cm.MR,data$EF...MR,model="line2P",plot=FALSE,linecolor="red",xlab="ĽK [cm] MR", ylab="EF % MR")
+```
+
+Medzi dátami je nízka korelácia (0,3 > r => nízka tesnosť) a veľkosť komory len málo závisí od ejekčnej frakcie.
+
+Hodnota korelačného koeficietu:
+
+```{r}
+r <- sqrt(0.030189)
+r
+```
+
+
+__Regresná analýza__
+
+```{r}
+fit <- lm(formula = data$LK.cm.MR ~ data$EF...MR, data = data)
+summary(fit)
+```
+
+Na základe znalosti hodnoty ĽK z MR nevieme dobre predpovedať ejekčnú frakciu (EF MR) ľavej komory.
+
